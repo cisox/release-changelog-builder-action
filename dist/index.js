@@ -1958,6 +1958,17 @@ function fillAdditionalPlaceholders(options, placeholderMap /* placeholderKey an
 }
 function fillPrTemplate(pr, template, placeholders /* placeholders to apply */, placeholderPrMap /* map to keep replaced placeholder values with their key */, configuration) {
     var _a, _b, _c, _d, _e, _f;
+    const reviewLinks = (pr.reviews || [])
+        .filter(x => x.body.includes('https://trello.com/c'))
+        .map(review => {
+        const matches = review.body.matchAll(/https:\/\/trello\.com\/c\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)/g);
+        return [...matches].map(match => `https://trello.com/c/${match[1]}/${match[2]}`);
+    });
+    const trelloLinks = reviewLinks
+        .reduce((arr, value) => arr.concat(value), [])
+        .map(link => {
+        return `[trello](${link})`;
+    });
     const arrayPlaceholderMap = new Map();
     fillReviewPlaceholders(arrayPlaceholderMap, 'REVIEWS', pr.reviews || []);
     const placeholderMap = new Map();
@@ -1980,6 +1991,8 @@ function fillPrTemplate(pr, template, placeholders /* placeholders to apply */, 
     placeholderMap.set('APPROVERS', ((_f = pr.approvedReviewers) === null || _f === void 0 ? void 0 : _f.join(', ')) || '');
     placeholderMap.set('BRANCH', pr.branch || '');
     placeholderMap.set('BASE_BRANCH', pr.baseBranch);
+    fillArrayPlaceholders(arrayPlaceholderMap, 'TRELLO', trelloLinks);
+    placeholderMap.set('TRELLO', trelloLinks.join(', ') || '');
     return replacePlaceholders(template, arrayPlaceholderMap, placeholderMap, placeholders, placeholderPrMap, configuration);
 }
 function replacePlaceholders(template, arrayPlaceholderMap /* arrayPlaceholderKey and original value */, placeholderMap /* placeholderKey and original value */, placeholders /* placeholders to apply */, placeholderPrMap /* map to keep replaced placeholder values with their key */, configuration) {
