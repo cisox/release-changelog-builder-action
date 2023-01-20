@@ -423,8 +423,9 @@ function run() {
             const fetchReviewers = core.getInput('fetchReviewers') === 'true';
             const fetchReleaseInformation = core.getInput('fetchReleaseInformation') === 'true';
             const fetchReviews = core.getInput('fetchReviews') === 'true';
+            const fetchComments = core.getInput('fetchComments') === 'true';
             const commitMode = core.getInput('commitMode') === 'true';
-            const result = yield new releaseNotesBuilder_1.ReleaseNotesBuilder(baseUrl, token, repositoryPath, owner, repo, fromTag, toTag, includeOpen, failOnError, ignorePreReleases, fetchReviewers, fetchReleaseInformation, fetchReviews, commitMode, configuration).build();
+            const result = yield new releaseNotesBuilder_1.ReleaseNotesBuilder(baseUrl, token, repositoryPath, owner, repo, fromTag, toTag, includeOpen, failOnError, ignorePreReleases, fetchReviewers, fetchReleaseInformation, fetchReviews, fetchComments, commitMode, configuration).build();
             core.setOutput('changelog', result);
             // write the result in changelog to file if possible
             const outputFile = core.getInput('outputFile');
@@ -491,16 +492,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.retrieveProperty = exports.compare = exports.sortPullRequests = exports.PullRequests = exports.EMPTY_COMMENT_INFO = void 0;
+exports.retrieveProperty = exports.compare = exports.sortPullRequests = exports.PullRequests = exports.EMPTY_COMMENT_INFO = exports.EMPTY_REVIEW_INFO = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const moment_1 = __importDefault(__nccwpck_require__(9623));
-exports.EMPTY_COMMENT_INFO = {
+exports.EMPTY_REVIEW_INFO = {
     id: 0,
     htmlURL: '',
     submittedAt: undefined,
     author: '',
     body: '',
     state: undefined
+};
+exports.EMPTY_COMMENT_INFO = {
+    id: 0,
+    htmlURL: '',
+    createdAt: undefined,
+    author: '',
+    body: ''
 };
 class PullRequests {
     constructor(octokit) {
@@ -669,7 +677,7 @@ class PullRequests {
                         const response = _c;
                         const comments = response.data;
                         for (const comment of comments) {
-                            prReviews.push(mapComment(comment));
+                            prReviews.push(mapReview(comment));
                         }
                     }
                     finally {
@@ -685,6 +693,44 @@ class PullRequests {
                 finally { if (e_4) throw e_4.error; }
             }
             pr.reviews = prReviews;
+        });
+    }
+    getComments(owner, repo, pr) {
+        var _a, e_5, _b, _c;
+        return __awaiter(this, void 0, void 0, function* () {
+            this.octokit.issues.listComments;
+            const options = this.octokit.issues.listComments.endpoint.merge({
+                owner,
+                repo,
+                issue_number: pr.number,
+                sort: 'created',
+                direction: 'desc'
+            });
+            const prComments = [];
+            try {
+                for (var _d = true, _e = __asyncValues(this.octokit.paginate.iterator(options)), _f; _f = yield _e.next(), _a = _f.done, !_a;) {
+                    _c = _f.value;
+                    _d = false;
+                    try {
+                        const response = _c;
+                        const comments = response.data;
+                        for (const comment of comments) {
+                            prComments.push(mapComment(comment));
+                        }
+                    }
+                    finally {
+                        _d = true;
+                    }
+                }
+            }
+            catch (e_5_1) { e_5 = { error: e_5_1 }; }
+            finally {
+                try {
+                    if (!_d && !_a && (_b = _e.return)) yield _b.call(_e);
+                }
+                finally { if (e_5) throw e_5.error; }
+            }
+            pr.comments = prComments;
         });
     }
 }
@@ -784,7 +830,7 @@ const mapPullRequest = (pr, status = 'open') => {
         status
     });
 };
-const mapComment = (comment) => {
+const mapReview = (comment) => {
     var _a;
     return ({
         id: comment.id,
@@ -793,6 +839,16 @@ const mapComment = (comment) => {
         author: ((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) || '',
         body: comment.body,
         state: comment.state
+    });
+};
+const mapComment = (comment) => {
+    var _a;
+    return ({
+        id: comment.id,
+        htmlURL: comment.html_url,
+        createdAt: comment.created_at ? (0, moment_1.default)(comment.created_at) : undefined,
+        author: ((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) || '',
+        body: comment.body || ''
     });
 };
 
@@ -1030,9 +1086,9 @@ class ReleaseNotes {
         });
     }
     getMergedPullRequests(octokit) {
-        var _a, _b;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
-            const { owner, repo, includeOpen, fetchReviewers, fetchReviews, configuration } = this.options;
+            const { owner, repo, includeOpen, fetchReviewers, fetchReviews, fetchComments, configuration } = this.options;
             const diffInfo = yield this.getCommitHistory(octokit);
             const commits = diffInfo.commitInfo;
             if (commits.length === 0) {
@@ -1114,6 +1170,19 @@ class ReleaseNotes {
             }
             else {
                 core.debug(`ℹ️ Fetching reviews was disabled`);
+            }
+            if (fetchComments) {
+                core.info(`ℹ️ Fetching comments was enabled`);
+                // update PR information with comments
+                for (const pr of finalPrs) {
+                    yield pullRequestsApi.getComments(owner, repo, pr);
+                    if ((((_c = pr.comments) === null || _c === void 0 ? void 0 : _c.length) || 0) > 0) {
+                        core.info(`ℹ️ Retrieved ${((_d = pr.comments) === null || _d === void 0 ? void 0 : _d.length) || 0} comments(s) for PR ${owner}/${repo}/#${pr.number}`);
+                    }
+                }
+            }
+            else {
+                core.debug(`ℹ️ Fetching comments was disabled`);
             }
             return [diffInfo, finalPrs];
         });
@@ -1203,7 +1272,7 @@ const tags_1 = __nccwpck_require__(7532);
 const utils_1 = __nccwpck_require__(918);
 const https_proxy_agent_1 = __nccwpck_require__(7219);
 class ReleaseNotesBuilder {
-    constructor(baseUrl, token, repositoryPath, owner, repo, fromTag, toTag, includeOpen = false, failOnError, ignorePreReleases, fetchReviewers = false, fetchReleaseInformation = false, fetchReviews = false, commitMode, configuration) {
+    constructor(baseUrl, token, repositoryPath, owner, repo, fromTag, toTag, includeOpen = false, failOnError, ignorePreReleases, fetchReviewers = false, fetchReleaseInformation = false, fetchReviews = false, fetchComments = false, commitMode, configuration) {
         this.baseUrl = baseUrl;
         this.token = token;
         this.repositoryPath = repositoryPath;
@@ -1217,6 +1286,7 @@ class ReleaseNotesBuilder {
         this.fetchReviewers = fetchReviewers;
         this.fetchReleaseInformation = fetchReleaseInformation;
         this.fetchReviews = fetchReviews;
+        this.fetchComments = fetchComments;
         this.commitMode = commitMode;
         this.configuration = configuration;
     }
@@ -1300,6 +1370,7 @@ class ReleaseNotesBuilder {
                 fetchReviewers: this.fetchReviewers,
                 fetchReleaseInformation: this.fetchReleaseInformation,
                 fetchReviews: this.fetchReviews,
+                fetchComments: this.fetchComments,
                 commitMode: this.commitMode,
                 configuration: this.configuration
             };
@@ -1958,19 +2029,20 @@ function fillAdditionalPlaceholders(options, placeholderMap /* placeholderKey an
 }
 function fillPrTemplate(pr, template, placeholders /* placeholders to apply */, placeholderPrMap /* map to keep replaced placeholder values with their key */, configuration) {
     var _a, _b, _c, _d, _e, _f;
-    const reviewLinks = (pr.reviews || [])
+    const commentLinks = (pr.comments || [])
         .filter(x => x.body.includes('https://trello.com/c'))
         .map(review => {
         const matches = review.body.matchAll(/https:\/\/trello\.com\/c\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)/g);
         return [...matches].map(match => `https://trello.com/c/${match[1]}/${match[2]}`);
     });
-    const trelloLinks = reviewLinks
+    const trelloLinks = commentLinks
         .reduce((arr, value) => arr.concat(value), [])
         .map(link => {
         return `[trello](${link})`;
     });
     const arrayPlaceholderMap = new Map();
     fillReviewPlaceholders(arrayPlaceholderMap, 'REVIEWS', pr.reviews || []);
+    fillCommentPlaceholders(arrayPlaceholderMap, 'COMMENTS', pr.comments || []);
     const placeholderMap = new Map();
     placeholderMap.set('NUMBER', pr.number.toString());
     placeholderMap.set('TITLE', pr.title);
@@ -2041,6 +2113,16 @@ function fillArrayPlaceholders(placeholderMap /* placeholderKey and original val
     placeholderMap.set(`\${{${key}[*]}}`, values.join(', '));
 }
 function fillReviewPlaceholders(placeholderMap /* placeholderKey and original value */, parentKey, values) {
+    var _a;
+    // retrieve the keys from the CommentInfo object
+    for (const childKey of Object.keys(pullRequests_1.EMPTY_REVIEW_INFO)) {
+        for (let i = 0; i < values.length; i++) {
+            placeholderMap.set(`\${{${parentKey}[${i}].${childKey}}}`, ((_a = values[i][childKey]) === null || _a === void 0 ? void 0 : _a.toLocaleString('en')) || '');
+        }
+        placeholderMap.set(`\${{${parentKey}[*].${childKey}}}`, values.map(value => { var _a; return ((_a = value[childKey]) === null || _a === void 0 ? void 0 : _a.toLocaleString('en')) || ''; }).join(', '));
+    }
+}
+function fillCommentPlaceholders(placeholderMap /* placeholderKey and original value */, parentKey, values) {
     var _a;
     // retrieve the keys from the CommentInfo object
     for (const childKey of Object.keys(pullRequests_1.EMPTY_COMMENT_INFO)) {
