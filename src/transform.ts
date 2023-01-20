@@ -1,6 +1,14 @@
 import * as core from '@actions/core'
 import {Category, Configuration, Placeholder, Property, Transformer} from './configuration'
-import {CommentInfo, EMPTY_COMMENT_INFO, PullRequestInfo, retrieveProperty, sortPullRequests} from './pullRequests'
+import {
+  ReviewInfo,
+  EMPTY_REVIEW_INFO,
+  EMPTY_COMMENT_INFO,
+  PullRequestInfo,
+  retrieveProperty,
+  sortPullRequests,
+  CommentInfo
+} from './pullRequests'
 import {ReleaseNotesOptions} from './releaseNotes'
 import {DiffInfo} from './commits'
 import {createOrSet, haveCommonElements, haveEveryElements} from './utils'
@@ -296,7 +304,7 @@ function fillPrTemplate(
   placeholderPrMap: Map<string, string[]> /* map to keep replaced placeholder values with their key */,
   configuration: Configuration
 ): string {
-  const reviewLinks = (pr.reviews || [])
+  const commentLinks = (pr.comments || [])
     .filter(x => x.body.includes('https://trello.com/c'))
     .map(review => {
       const matches = review.body.matchAll(/https:\/\/trello\.com\/c\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)/g)
@@ -304,7 +312,7 @@ function fillPrTemplate(
       return [...matches].map(match => `https://trello.com/c/${match[1]}/${match[2]}`)
     })
 
-  const trelloLinks = reviewLinks
+  const trelloLinks = commentLinks
     .reduce((arr, value) => arr.concat(value), [])
     .map(link => {
       return `[trello](${link})`
@@ -312,6 +320,7 @@ function fillPrTemplate(
 
   const arrayPlaceholderMap = new Map<string, string>()
   fillReviewPlaceholders(arrayPlaceholderMap, 'REVIEWS', pr.reviews || [])
+  fillCommentPlaceholders(arrayPlaceholderMap, 'COMMENTS', pr.comments || [])
   const placeholderMap = new Map<string, string>()
   placeholderMap.set('NUMBER', pr.number.toString())
   placeholderMap.set('TITLE', pr.title)
@@ -410,6 +419,23 @@ function fillArrayPlaceholders(
 }
 
 function fillReviewPlaceholders(
+  placeholderMap: Map<string, string> /* placeholderKey and original value */,
+  parentKey: string,
+  values: ReviewInfo[]
+): void {
+  // retrieve the keys from the CommentInfo object
+  for (const childKey of Object.keys(EMPTY_REVIEW_INFO)) {
+    for (let i = 0; i < values.length; i++) {
+      placeholderMap.set(`\${{${parentKey}[${i}].${childKey}}}`, values[i][childKey as keyof ReviewInfo]?.toLocaleString('en') || '')
+    }
+    placeholderMap.set(
+      `\${{${parentKey}[*].${childKey}}}`,
+      values.map(value => value[childKey as keyof ReviewInfo]?.toLocaleString('en') || '').join(', ')
+    )
+  }
+}
+
+function fillCommentPlaceholders(
   placeholderMap: Map<string, string> /* placeholderKey and original value */,
   parentKey: string,
   values: CommentInfo[]

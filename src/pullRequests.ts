@@ -21,11 +21,12 @@ export interface PullRequestInfo {
   assignees: string[]
   requestedReviewers: string[]
   approvedReviewers: string[]
-  reviews?: CommentInfo[]
+  reviews?: ReviewInfo[]
+  comments?: CommentInfo[]
   status: 'open' | 'merged'
 }
 
-export interface CommentInfo {
+export interface ReviewInfo {
   id: number
   htmlURL: string
   submittedAt: moment.Moment | undefined
@@ -34,13 +35,29 @@ export interface CommentInfo {
   state: string | undefined
 }
 
-export const EMPTY_COMMENT_INFO: CommentInfo = {
+export interface CommentInfo {
+  id: number
+  htmlURL: string
+  createdAt: moment.Moment | undefined
+  author: string
+  body: string
+}
+
+export const EMPTY_REVIEW_INFO: ReviewInfo = {
   id: 0,
   htmlURL: '',
   submittedAt: undefined,
   author: '',
   body: '',
   state: undefined
+}
+
+export const EMPTY_COMMENT_INFO: CommentInfo = {
+  id: 0,
+  htmlURL: '',
+  createdAt: undefined,
+  author: '',
+  body: ''
 }
 
 type PullData = RestEndpointMethodTypes['pulls']['get']['response']['data']
@@ -50,6 +67,8 @@ type PullsListData = RestEndpointMethodTypes['pulls']['list']['response']['data'
 type PullReviewData = RestEndpointMethodTypes['pulls']['listReviews']['response']['data']
 
 type PullReviewsData = RestEndpointMethodTypes['pulls']['listReviews']['response']['data']
+
+type PullCommentsData = RestEndpointMethodTypes['issues']['listComments']['response']['data']
 
 export class PullRequests {
   constructor(private octokit: Octokit) {}
@@ -167,15 +186,35 @@ export class PullRequests {
       sort: 'created',
       direction: 'desc'
     })
-    const prReviews: CommentInfo[] = []
+    const prReviews: ReviewInfo[] = []
     for await (const response of this.octokit.paginate.iterator(options)) {
       const comments: PullReviewsData = response.data as PullReviewsData
 
       for (const comment of comments) {
-        prReviews.push(mapComment(comment))
+        prReviews.push(mapReview(comment))
       }
     }
     pr.reviews = prReviews
+  }
+
+  async getComments(owner: string, repo: string, pr: PullRequestInfo): Promise<void> {
+    this.octokit.issues.listComments
+    const options = this.octokit.issues.listComments.endpoint.merge({
+      owner,
+      repo,
+      issue_number: pr.number,
+      sort: 'created',
+      direction: 'desc'
+    })
+    const prComments: CommentInfo[] = []
+    for await (const response of this.octokit.paginate.iterator(options)) {
+      const comments: PullCommentsData = response.data as PullCommentsData
+
+      for (const comment of comments) {
+        prComments.push(mapComment(comment))
+      }
+    }
+    pr.comments = prComments
   }
 }
 
@@ -269,11 +308,19 @@ const mapPullRequest = (pr: PullData | Unpacked<PullsListData>, status: 'open' |
   status
 })
 
-const mapComment = (comment: Unpacked<PullReviewsData>): CommentInfo => ({
+const mapReview = (comment: Unpacked<PullReviewsData>): ReviewInfo => ({
   id: comment.id,
   htmlURL: comment.html_url,
   submittedAt: comment.submitted_at ? moment(comment.submitted_at) : undefined,
   author: comment.user?.login || '',
   body: comment.body,
   state: comment.state
+})
+
+const mapComment = (comment: Unpacked<PullCommentsData>): CommentInfo => ({
+  id: comment.id,
+  htmlURL: comment.html_url,
+  createdAt: comment.created_at ? moment(comment.created_at) : undefined,
+  author: comment.user?.login || '',
+  body: comment.body || ''
 })

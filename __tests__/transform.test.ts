@@ -627,6 +627,7 @@ function buildChangelogTest(config: Configuration, prs: PullRequestInfo[]): stri
     fetchReviewers: false,
     fetchReleaseInformation: false,
     fetchReviews: false,
+    fetchComments: false,
     commitMode: false,
     configuration: config
   })

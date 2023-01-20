@@ -17,6 +17,7 @@ export interface ReleaseNotesOptions {
   fetchReviewers: boolean // defines if the action should fetch the reviewers for PRs - approved reviewers are not included in the default PR listing
   fetchReleaseInformation: boolean // defines if the action should fetch the release information for the from and to tag - e.g. the creation date for the associated release
   fetchReviews: boolean // defines if the action should fetch the reviews for the PR.
+  fetchComments: boolean // defines if the action should fetch the comments for the PR.
   commitMode: boolean // defines if we use the alternative commit based mode. note: this is only partially supported
   configuration: Configuration // the configuration as defined in `configuration.ts`
 }
@@ -92,7 +93,7 @@ export class ReleaseNotes {
   }
 
   private async getMergedPullRequests(octokit: Octokit): Promise<[DiffInfo, PullRequestInfo[]]> {
-    const {owner, repo, includeOpen, fetchReviewers, fetchReviews, configuration} = this.options
+    const {owner, repo, includeOpen, fetchReviewers, fetchReviews, fetchComments, configuration} = this.options
 
     const diffInfo = await this.getCommitHistory(octokit)
     const commits = diffInfo.commitInfo
@@ -192,6 +193,19 @@ export class ReleaseNotes {
       }
     } else {
       core.debug(`ℹ️ Fetching reviews was disabled`)
+    }
+
+    if (fetchComments) {
+      core.info(`ℹ️ Fetching comments was enabled`)
+      // update PR information with comments
+      for (const pr of finalPrs) {
+        await pullRequestsApi.getComments(owner, repo, pr)
+        if ((pr.comments?.length || 0) > 0) {
+          core.info(`ℹ️ Retrieved ${pr.comments?.length || 0} comments(s) for PR ${owner}/${repo}/#${pr.number}`)
+        }
+      }
+    } else {
+      core.debug(`ℹ️ Fetching comments was disabled`)
     }
 
     return [diffInfo, finalPrs]

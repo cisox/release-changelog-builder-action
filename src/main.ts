@@ -43,6 +43,7 @@ async function run(): Promise<void> {
     const fetchReviewers = core.getInput('fetchReviewers') === 'true'
     const fetchReleaseInformation = core.getInput('fetchReleaseInformation') === 'true'
     const fetchReviews = core.getInput('fetchReviews') === 'true'
+    const fetchComments = core.getInput('fetchComments') === 'true'
     const commitMode = core.getInput('commitMode') === 'true'
 
     const result = await new ReleaseNotesBuilder(
@@ -59,6 +60,7 @@ async function run(): Promise<void> {
       fetchReviewers,
       fetchReleaseInformation,
       fetchReviews,
+      fetchComments,
       commitMode,
       configuration
     ).build()
