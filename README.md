@@ -327,6 +327,7 @@ For advanced use cases additional settings can be provided to the action
 | `fetchReviewers`    | Will enable fetching the users/reviewers who approved the PR. Default: false                                                                                                |
 | `fetchReleaseInformation` | Will enable fetching additional release information from tags. Default: false |
 | `fetchReviews`      | Will enable fetching the reviews on of the PR. Default: false                                                                                                |
+| `fetchComments`     | Will enable fetching the comments on the PR. Default: false
 | `commitMode`        | Special configuration for projects which work without PRs. Uses commit messages as changelog. This mode looses access to information only available for PRs. Default: false |
 
 > **Warning**: `${{ secrets.GITHUB_TOKEN }}` only grants rights to the current repository, for other repositories please use a PAT (Personal Access Token).
@@ -351,6 +352,7 @@ Table of supported placeholders allowed to be used in the `pr_template` configur
 | `${{ASSIGNEES}}`  | Login names of assigned GitHub users, joined by `,`               |
 | `${{REVIEWERS}}`  | GitHub Login names of specified reviewers, joined by `,`. Requires `fetchReviewers` to be enabled. |
 | `${{APPROVERS}}`  | GitHub Login names of users who approved the PR, joined by `,`    |
+| `${{TRELLO}}`     | Trello links parsed from GitHub comments. Requires `fetchComments` to be enabled. |
 
 ### Template placeholders
 
