@@ -417,9 +417,7 @@ it('Release Diff', async () => {
     configuration: customConfig
   })
 
-  expect(resultChangelog).toStrictEqual(
-    `https://github.com/mikepenz/release-changelog-builder-action/compare/v2.8.0...v2.8.1\n`
-  )
+  expect(resultChangelog).toStrictEqual(`https://github.com/mikepenz/release-changelog-builder-action/compare/v2.8.0...v2.8.1\n`)
 })
 
 it('Use exclude labels to not include a PR within a category.', async () => {
@@ -492,7 +490,6 @@ it('Extract custom placeholder from PR body and replace in global template', asy
   )
 })
 
-
 it('Use Rules to include a PR within a Category.', async () => {
   const customConfig = Object.assign({}, DefaultConfiguration)
   customConfig.categories = [
@@ -502,12 +499,12 @@ it('Use Rules to include a PR within a Category.', async () => {
       exclude_labels: ['Fix'],
       rules: [
         {
-          pattern: "\[ABC-1234\]",
-          on_property: "title"
+          pattern: '[ABC-1234]',
+          on_property: 'title'
         },
         {
-          pattern: "merged",
-          on_property: "status"
+          pattern: 'merged',
+          on_property: 'status'
         }
       ],
       exhaustive: true
@@ -528,15 +525,13 @@ it('Use Rules to get all open PRs in a Category.', async () => {
       title: '## Open PRs only',
       rules: [
         {
-          pattern: "open",
-          on_property: "status"
+          pattern: 'open',
+          on_property: 'status'
         }
       ]
     }
   ]
-  expect(buildChangelogTest(customConfig, prs)).toStrictEqual(
-    `## Open PRs only\n\n- Still pending open pull request\n   - PR: #6\n\n`
-  )
+  expect(buildChangelogTest(customConfig, prs)).toStrictEqual(`## Open PRs only\n\n- Still pending open pull request\n   - PR: #6\n\n`)
 })
 
 it('Use Rules to get all open PRs in one Category and merged categorised.', async () => {
@@ -549,8 +544,8 @@ it('Use Rules to get all open PRs in one Category and merged categorised.', asyn
       title: '## Open PRs only',
       rules: [
         {
-          pattern: "open",
-          on_property: "status"
+          pattern: 'open',
+          on_property: 'status'
         }
       ]
     },
@@ -559,15 +554,65 @@ it('Use Rules to get all open PRs in one Category and merged categorised.', asyn
       labels: ['Feature', 'Issue'],
       rules: [
         {
-          pattern: "merged",
-          on_property: "status"
+          pattern: 'merged',
+          on_property: 'status'
         }
       ],
-      exhaustive: true,
+      exhaustive: true
     }
   ]
   expect(buildChangelogTest(customConfig, prs)).toStrictEqual(
     `## Open PRs only\n\n- Still pending open pull request\n   - PR: #6\n\n## 🚀 Features and 🐛 Issues\n\n- [ABC-1234] - this is a PR 3 title message\n   - PR: #3\n\n`
+  )
+})
+
+// test set of PRs with reviews predefined
+const pullRequestsWithReviews: PullRequestInfo[] = []
+pullRequestsWithReviews.push({
+  number: 1,
+  title: '[ABC-1234] - this is a PR 1 title message',
+  htmlURL: '',
+  baseBranch: '',
+  createdAt: moment(),
+  mergedAt: moment(),
+  mergeCommitSha: 'sha1-1',
+  author: 'Mike',
+  repoName: 'test-repo',
+  labels: new Set<string>().add('feature'),
+  milestone: '',
+  body: 'no magic body for this matter',
+  assignees: [],
+  requestedReviewers: [],
+  approvedReviewers: [],
+  status: 'merged',
+  reviews: [
+    {
+      id: 1,
+      htmlURL: '',
+      submittedAt: moment(),
+      author: '',
+      body: '![](https://github.trello.services/images/mini-trello-icon.png) [Test](https://trello.com/c/abc/123-def)',
+      state: ''
+    }
+  ]
+})
+
+it('should parse trello links.', async () => {
+  let prs = Array.from(pullRequestsWithReviews)
+  prs.push(openPullRequest)
+
+  const customConfig = Object.assign({}, DefaultConfiguration)
+  customConfig.pr_template = '- ${{TITLE}}\n   - PR: #${{NUMBER}} (${{TRELLO}})'
+
+  customConfig.categories = [
+    {
+      title: '## 🚀 Features and 🐛 Issues',
+      labels: ['Feature', 'Issue']
+    }
+  ]
+
+  expect(buildChangelogTest(customConfig, prs)).toStrictEqual(
+    `## 🚀 Features and 🐛 Issues\n\n- [ABC-1234] - this is a PR 1 title message\n   - PR: #1 ([trello](https://trello.com/c/abc/123-def))\n\n`
   )
 })
 

@@ -296,6 +296,20 @@ function fillPrTemplate(
   placeholderPrMap: Map<string, string[]> /* map to keep replaced placeholder values with their key */,
   configuration: Configuration
 ): string {
+  const reviewLinks = (pr.reviews || [])
+    .filter(x => x.body.includes('https://trello.com/c'))
+    .map(review => {
+      const matches = review.body.matchAll(/https:\/\/trello\.com\/c\/([A-Za-z0-9-_]+)\/([A-Za-z0-9-_]+)/g)
+
+      return [...matches].map(match => `https://trello.com/c/${match[1]}/${match[2]}`)
+    })
+
+  const trelloLinks = reviewLinks
+    .reduce((arr, value) => arr.concat(value), [])
+    .map(link => {
+      return `[trello](${link})`
+    })
+
   const arrayPlaceholderMap = new Map<string, string>()
   fillReviewPlaceholders(arrayPlaceholderMap, 'REVIEWS', pr.reviews || [])
   const placeholderMap = new Map<string, string>()
@@ -318,6 +332,8 @@ function fillPrTemplate(
   placeholderMap.set('APPROVERS', pr.approvedReviewers?.join(', ') || '')
   placeholderMap.set('BRANCH', pr.branch || '')
   placeholderMap.set('BASE_BRANCH', pr.baseBranch)
+  fillArrayPlaceholders(arrayPlaceholderMap, 'TRELLO', trelloLinks)
+  placeholderMap.set('TRELLO', trelloLinks.join(', ') || '')
   return replacePlaceholders(template, arrayPlaceholderMap, placeholderMap, placeholders, placeholderPrMap, configuration)
 }
 
