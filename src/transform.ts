@@ -315,7 +315,7 @@ function fillPrTemplate(
   const trelloLinks = commentLinks
     .reduce((arr, value) => arr.concat(value), [])
     .map(link => {
-      return `[trello](${link})`
+      return `[Trello](${link})`
     })
 
   const arrayPlaceholderMap = new Map<string, string>()
