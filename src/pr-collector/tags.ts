@@ -1,12 +1,12 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 import * as semver from 'semver'
-import {Octokit, RestEndpointMethodTypes} from '@octokit/rest'
 import {SemVer} from 'semver'
-import {TagResolver} from './configuration'
+import {Regex, RegexTransformer, TagResolver} from './types'
 import {createCommandManager} from './gitHelper'
 import moment from 'moment'
-import {RegexTransformer, validateTransformer} from './regexUtils'
+import {transformStringToOptionalValue, transformStringToValue, validateRegex} from './regexUtils'
+import {BaseRepository} from '../repositories/BaseRepository'
 
 export interface TagResult {
   from: TagInfo | null
@@ -16,6 +16,7 @@ export interface TagResult {
 export interface TagInfo {
   name: string
   commit?: string
+  preRelease?: boolean
   date?: moment.Moment
 }
 
@@ -24,69 +25,14 @@ export interface SortableTagInfo extends TagInfo {
 }
 
 export class Tags {
-  constructor(private octokit: Octokit) {}
+  constructor(private repositoryUtils: BaseRepository) {}
 
   async getTags(owner: string, repo: string, maxTagsToFetch: number): Promise<TagInfo[]> {
-    const tagsInfo: TagInfo[] = []
-    const options = this.octokit.repos.listTags.endpoint.merge({
-      owner,
-      repo,
-      direction: 'desc',
-      per_page: 100
-    })
-
-    for await (const response of this.octokit.paginate.iterator(options)) {
-      type TagsListData = RestEndpointMethodTypes['repos']['listTags']['response']['data']
-      const tags: TagsListData = response.data as TagsListData
-
-      for (const tag of tags) {
-        tagsInfo.push({
-          name: tag.name,
-          commit: tag.commit.sha
-        })
-      }
-
-      // for performance only fetch newest maxTagsToFetch tags!!
-      if (tagsInfo.length >= maxTagsToFetch) {
-        break
-      }
-    }
-
-    core.info(`ℹ️ Found ${tagsInfo.length} (fetching max: ${maxTagsToFetch}) tags from the GitHub API for ${owner}/${repo}`)
-    return tagsInfo
+    return this.repositoryUtils.getTags(owner, repo, maxTagsToFetch)
   }
 
   async fillTagInformation(repositoryPath: string, owner: string, repo: string, tagInfo: TagInfo): Promise<TagInfo> {
-    const options = this.octokit.repos.getReleaseByTag.endpoint.merge({
-      owner,
-      repo,
-      tag: tagInfo.name
-    })
-
-    try {
-      const response = await this.octokit.request(options)
-      type ReleaseInformation = RestEndpointMethodTypes['repos']['getReleaseByTag']['response']['data']
-
-      const release: ReleaseInformation = response.data as ReleaseInformation
-      tagInfo.date = moment(release.created_at)
-      core.info(`ℹ️ Retrieved information about the release associated with ${tagInfo.name} from the GitHub API`)
-    } catch (error) {
-      core.info(`⚠️ No release information found for ${tagInfo.name}, trying to retrieve tag creation time as fallback.`)
-      const gitHelper = await createCommandManager(repositoryPath)
-      const creationTimeString = await gitHelper.tagCreation(tagInfo.name)
-      const creationTime = moment(creationTimeString)
-      if (creationTimeString !== null && creationTime.isValid()) {
-        tagInfo.date = creationTime
-        core.info(
-          `ℹ️ Resolved tag creation time (${creationTimeString}) from 'git for-each-ref --format="%(creatordate:rfc)" "refs/tags/${tagInfo.name}`
-        )
-      } else {
-        core.info(
-          `⚠️ Could not retrieve tag creation time via git cli 'git for-each-ref --format="%(creatordate:rfc)" "refs/tags/${tagInfo.name}'`
-        )
-      }
-    }
-    return tagInfo
+    return this.repositoryUtils.fillTagInformation(repositoryPath, owner, repo, tagInfo)
   }
 
   async findPredecessorTag(
@@ -104,7 +50,7 @@ export class Tags {
             if (ignorePreReleases) {
               core.info(`ℹ️ Enabled 'ignorePreReleases', searching for the closest release`)
               for (let ii = i + 1; ii < length; ii++) {
-                if (!tags[ii].name.includes('-')) {
+                if (!tags[ii].preRelease) {
                   return tags[ii]
                 }
               }
@@ -139,35 +85,54 @@ export class Tags {
     maxTagsToFetch: number,
     tagResolver: TagResolver
   ): Promise<TagResult> {
-    // filter out tags not matching the specified filter
-    const filteredTags = filterTags(
-      // retrieve the tags from the API
-      await this.getTags(owner, repo, maxTagsToFetch),
-      tagResolver
-    )
+    let tags: TagInfo[] = []
 
-    // check if a transformer was defined
-    const tagTransformer = validateTransformer(tagResolver.transformer)
+    if (!toTag || !fromTag) {
+      const filterRegex = validateRegex(tagResolver.filter)
 
-    let transformedTags: TagInfo[]
-    if (tagTransformer != null) {
-      core.debug(`ℹ️ Using configured tagTransformer`)
-      transformedTags = transformTags(filteredTags, tagTransformer)
-    } else {
-      transformedTags = filteredTags
-    }
+      // filter out tags not matching the specified filter
+      const filteredTags = filterTags(
+        // retrieve the tags from the API
+        await this.getTags(owner, repo, maxTagsToFetch),
+        filterRegex
+      )
 
-    let tags = sortTags(transformedTags, tagResolver)
-
-    if (tagTransformer != null) {
-      // restore the original name, after sorting
-      tags = filteredTags.map(function (tag) {
-        if (tag.hasOwnProperty('tmp')) {
-          return {name: (tag as SortableTagInfo).tmp, commit: tag.commit}
+      // check if a transformer, legacy handling, transform single value input to array
+      let tagTransfomers: Regex[] | undefined = undefined
+      if (tagResolver.transformer !== undefined) {
+        if (!Array.isArray(tagResolver.transformer)) {
+          tagTransfomers = [tagResolver.transformer]
         } else {
-          return tag
+          tagTransfomers = tagResolver.transformer
         }
-      })
+      }
+
+      let transformed = false
+      let transformedTags: TagInfo[] = filteredTags
+      if (tagTransfomers !== undefined && tagTransfomers.length > 0) {
+        for (const transformer of tagTransfomers) {
+          const tagTransformer = validateRegex(transformer)
+          if (tagTransformer != null) {
+            core.debug(`ℹ️ Using configured tagTransformer (${transformer.pattern})`)
+            transformedTags = transformTags(transformedTags, tagTransformer)
+            transformed = true
+          }
+        }
+      }
+
+      // sort tags, apply additional information (e.g. if tag is a pre release)
+      tags = prepareAndSortTags(transformedTags, tagResolver)
+
+      if (transformed) {
+        // restore the original name, after sorting
+        tags = filteredTags.map(function (tag) {
+          if (tag.hasOwnProperty('tmp')) {
+            return {name: (tag as SortableTagInfo).tmp, commit: tag.commit}
+          } else {
+            return tag
+          }
+        })
+      }
     }
 
     let resultToTag: TagInfo | null
@@ -233,11 +198,9 @@ export class Tags {
  * Uses the provided filter (if available) to filter out any tags not currently relevant.
  * https://github.com/mikepenz/release-changelog-builder-action/issues/566
  */
-export function filterTags(tags: TagInfo[], tagResolver: TagResolver): TagInfo[] {
-  const filter = tagResolver.filter
-  if (filter !== undefined) {
-    const regex = new RegExp(filter.pattern.replace('\\\\', '\\'), filter.flags ?? 'gu')
-    const filteredTags = tags.filter(tag => tag.name.match(regex) !== null)
+export function filterTags(tags: TagInfo[], filterRegex: RegexTransformer | null): TagInfo[] {
+  if (filterRegex !== null) {
+    const filteredTags = tags.filter(tag => transformStringToOptionalValue(tag.name, filterRegex) !== null)
     core.debug(`ℹ️ Filtered tags count: ${filteredTags.length}, original count: ${tags.length}`)
     return filteredTags
   } else {
@@ -248,10 +211,10 @@ export function filterTags(tags: TagInfo[], tagResolver: TagResolver): TagInfo[]
 /**
  * Helper function to transform the tag name given the transformer
  */
-function transformTags(tags: TagInfo[], transformer: RegexTransformer): TagInfo[] {
+export function transformTags(tags: TagInfo[], transformer: RegexTransformer): TagInfo[] {
   return tags.map(function (tag) {
     if (transformer.pattern) {
-      const transformedName = tag.name.replace(transformer.pattern, transformer.target)
+      const transformedName = transformStringToValue(tag.name, transformer)
       core.debug(`ℹ️ Transformed ${tag.name} to ${transformedName}`)
       return {
         tmp: tag.name, // remember the original name
@@ -278,15 +241,16 @@ function transformTags(tags: TagInfo[], transformer: RegexTransformer): TagInfo[
   2020.3.1-a01
   2020.3.0
   */
-export function sortTags(tags: TagInfo[], tagResolver: TagResolver): TagInfo[] {
+export function prepareAndSortTags(tags: TagInfo[], tagResolver: TagResolver): TagInfo[] {
   if (tagResolver.method === 'sort') {
-    return stringSorting(tags)
+    return stringTags(tags)
   } else {
-    return semVerSorting(tags)
+    // semver is default
+    return semVerTags(tags)
   }
 }
 
-function semVerSorting(tags: TagInfo[]): TagInfo[] {
+function semVerTags(tags: TagInfo[]): TagInfo[] {
   // filter out tags which do not follow semver
   const validatedTags = tags.filter(tag => {
     const isValid =
@@ -295,6 +259,11 @@ function semVerSorting(tags: TagInfo[]): TagInfo[] {
       }) !== null
     if (!isValid) {
       core.debug(`⚠️ dropped tag ${tag.name} because it is not a valid semver tag`)
+    } else {
+      tag.preRelease =
+        semver.prerelease(tag.name, {
+          loose: true
+        }) != null
     }
     return isValid
   })
@@ -309,7 +278,11 @@ function semVerSorting(tags: TagInfo[]): TagInfo[] {
   return validatedTags
 }
 
-function stringSorting(tags: TagInfo[]): TagInfo[] {
+function stringTags(tags: TagInfo[]): TagInfo[] {
+  for (const tag of tags) {
+    tag.preRelease = tag.name.includes('-')
+  }
+
   return tags.sort((b, a) => {
     const partsA = a.name.replace(/^v/, '').split('-')
     const partsB = b.name.replace(/^v/, '').split('-')
