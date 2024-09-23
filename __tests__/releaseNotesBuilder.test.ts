@@ -25,6 +25,7 @@ it('[Github] Should match generated changelog (unspecified fromTag)', async () =
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -59,6 +60,7 @@ it('[Github] Should match generated changelog (unspecified tags)', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -88,6 +90,7 @@ it('[Github] Should use empty placeholder', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -117,6 +120,7 @@ it('[Github] Should fill empty placeholders', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -148,6 +152,7 @@ it('[Github] Should fill `template` placeholders', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -180,6 +185,7 @@ it('[Github] Should fill `template` placeholders, ignore', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -211,6 +217,7 @@ it('[Github] Uncategorized category', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -242,6 +249,7 @@ it('[Github] Verify commit based changelog', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'COMMIT', // enable commitMode
     false, // enable exportCache
     false, // enable exportOnly
@@ -273,6 +281,7 @@ it('[Github] Verify commit based changelog, with emoji categorisation', async ()
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'COMMIT', // enable commitMode
     false, // enable exportCache
     false, // enable exportOnly
@@ -304,6 +313,7 @@ it('[Github] Verify default inclusion of open PRs', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -335,6 +345,7 @@ it('[Github] Verify custom categorisation of open PRs', async () => {
     false, // enable to fetch reviewers
     false, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -366,6 +377,7 @@ it('[Github] Verify reviewers who approved are fetched and also release informat
     true, // enable to fetch reviewers
     true, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -398,6 +410,7 @@ it('[Github] Fetch release information', async () => {
     false, // enable to fetch reviewers
     true, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly
@@ -428,6 +441,7 @@ it('[Github] Fetch release information for non existing tag / release', async ()
     false, // enable to fetch reviewers
     true, // enable to fetch tag release information
     false, // enable to fetch reviews
+    false, // enable to fetch comments
     'PR', // mode
     false, // enable exportCache
     false, // enable exportOnly

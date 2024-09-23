@@ -2,7 +2,7 @@ name: 'Release Changelog Builder'
 description: 'A GitHub action that builds your release notes / changelog fast, easy and exactly the way you want.'
 author: 'Mike Penz'
 branding:
-  icon: 'award'  
+  icon: 'award'
   color: 'green'
 inputs:
   configurationJson:
@@ -39,6 +39,9 @@ inputs:
     default: "false"
   fetchReviews:
     description: 'Will enable fetching the reviews (comments) attached to the PR'
+    default: "false"
+  fetchComments:
+    description: 'Will enable fetching the comments attached to the PR'
     default: "false"
   mode:
     description: 'Defines the mode used to retrieve the information. Available options: [`PR`, `COMMIT`, `HYBRID`]. Defaults to `PR`.'

@@ -25,6 +25,7 @@ export interface PullRequestInfo {
   requestedReviewers: string[]
   approvedReviewers: string[]
   reviews?: CommentInfo[]
+  comments?: CommentInfo[];
   status: 'open' | 'merged'
 }
 
@@ -72,6 +73,8 @@ export type PullsListData = RestEndpointMethodTypes['pulls']['list']['response']
 
 export type PullReviewsData = RestEndpointMethodTypes['pulls']['listReviews']['response']['data']
 
+export type PullCommentsData = RestEndpointMethodTypes['issues']['listComments']['response']['data']
+
 export class PullRequests {
   constructor(
     private repositoryUtils: BaseRepository,
@@ -100,8 +103,12 @@ export class PullRequests {
     await this.repositoryUtils.getReviews(owner, repo, pr)
   }
 
+  async getComments(owner: string, repo: string, pr: PullRequestInfo): Promise<void> {
+    await this.repositoryUtils.getComments(owner, repo, pr)
+  }
+
   async getMergedPullRequests(options: Options): Promise<[DiffInfo, PullRequestInfo[]]> {
-    const {owner, repo, includeOpen, fetchReviewers, fetchReviews, configuration} = options
+    const {owner, repo, includeOpen, fetchReviewers, fetchReviews, fetchComments, configuration} = options
 
     const diffInfo = await this.commits.getCommitHistory(options)
     const commits = diffInfo.commitInfo
@@ -215,6 +222,24 @@ export class PullRequests {
       }
     } else {
       core.debug(`ℹ️ Fetching reviews (or reviewers) was disabled`)
+    }
+
+    // fetch reviewers only if enabled (requires an additional API request per PR)
+    if (fetchComments) {
+      core.info(`ℹ️ Fetching comments was enabled`)
+      // update PR information with comments
+      for (const pr of finalPrs) {
+        await this.getComments(owner, repo, pr)
+
+        const comments = pr.comments
+        if (comments && (comments?.length || 0) > 0) {
+          core.info(`ℹ️ Retrieved ${comments.length || 0} comment(s) for PR ${owner}/${repo}/#${pr.number}`)
+        } else {
+          core.debug(`No comment(s) for PR ${owner}/${repo}/#${pr.number}`)
+        }
+      }
+    } else {
+      core.debug(`ℹ️ Fetching comments was disabled`)
     }
 
     return [diffInfo, finalPrs]

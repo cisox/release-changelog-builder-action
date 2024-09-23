@@ -2,7 +2,7 @@ import {BaseRepository} from './BaseRepository'
 import {TagInfo} from '../pr-collector/tags'
 import {CommentInfo, PullRequestInfo} from '../pr-collector/pullRequests'
 import {DiffInfo} from '../pr-collector/commits'
-import {Api, PullRequest, PullReview, giteaApi} from 'gitea-js'
+import {Api, PullRequest, PullReview, Comment, giteaApi} from 'gitea-js'
 import moment from 'moment'
 import * as core from '@actions/core'
 import {createCommandManager} from '../pr-collector/gitHelper'
@@ -213,7 +213,7 @@ export class GiteaRepository extends BaseRepository {
     const response = await this.api.repos.repoListPullReviews(owner, repo, pr.number, {})
     if (response.error === null) {
       for (const comment of response.data) {
-        prReviews.push(this.mapComment(comment))
+        prReviews.push(this.mapReview(comment))
       }
     } else {
       core.error(`ℹ️ Some errors. ${response.error.message}`)
@@ -221,13 +221,35 @@ export class GiteaRepository extends BaseRepository {
     pr.reviews = prReviews
   }
 
-  private mapComment = (comment: PullReview): CommentInfo => ({
+  async getComments(owner: string, repo: string, pr: PullRequestInfo): Promise<void> {
+    const prComments: CommentInfo[] = []
+    const response = await this.api.repos.issueGetComments(owner, repo, pr.number, {})
+    if (response.error === null) {
+      for (const comment of response.data) {
+        prComments.push(this.mapComment(comment))
+      }
+    } else {
+      core.error(`ℹ️ Some errors. ${response.error.message}`)
+    }
+    pr.comments = prComments
+  }
+
+  private mapReview = (comment: PullReview): CommentInfo => ({
     id: comment.id || 0,
     htmlURL: comment.html_url || '',
     submittedAt: comment.submitted_at ? moment(comment.submitted_at) : undefined,
     author: comment.user?.login || '',
     body: comment.body || '',
     state: comment.state
+  })
+
+  private mapComment = (comment: Comment): CommentInfo => ({
+    id: comment.id || 0,
+    htmlURL: comment.html_url || '',
+    submittedAt: comment.created_at ? moment(comment.created_at) : undefined,
+    author: comment.user?.login || '',
+    body: comment.body || '',
+    state: undefined
   })
 
   async getTags(owner: string, repo: string, maxTagsToFetch: number): Promise<TagInfo[]> {

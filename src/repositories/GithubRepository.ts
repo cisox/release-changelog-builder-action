@@ -5,7 +5,14 @@ import * as core from '@actions/core'
 import {TagInfo} from '../pr-collector/tags'
 import moment from 'moment/moment'
 import {DiffInfo} from '../pr-collector/commits'
-import {CommentInfo, PullData, PullRequestInfo, PullReviewsData, PullsListData} from '../pr-collector/pullRequests'
+import {
+  CommentInfo,
+  PullCommentsData,
+  PullData,
+  PullRequestInfo,
+  PullReviewsData,
+  PullsListData
+} from '../pr-collector/pullRequests'
 import {Unpacked} from '../pr-collector/utils'
 
 export class GithubRepository extends BaseRepository {
@@ -169,10 +176,30 @@ export class GithubRepository extends BaseRepository {
       const comments: PullReviewsData = response.data as PullReviewsData
 
       for (const comment of comments) {
-        prReviews.push(this.mapComment(comment))
+        prReviews.push(this.mapReview(comment))
       }
     }
     pr.reviews = prReviews
+  }
+
+  async getComments(owner: string, repo: string, pr: PullRequestInfo): Promise<void> {
+    this.octokit.issues.listComments
+    const options = this.octokit.issues.listComments.endpoint.merge({
+      owner,
+      repo,
+      issue_number: pr.number,
+      sort: 'created',
+      direction: 'desc'
+    })
+    const prComments: CommentInfo[] = []
+    for await (const response of this.octokit.paginate.iterator(options)) {
+      const comments: PullCommentsData = response.data as PullCommentsData
+
+      for (const comment of comments) {
+        prComments.push(this.mapComment(comment))
+      }
+    }
+    pr.comments = prComments
   }
 
   get defaultUrl(): string {
@@ -283,13 +310,22 @@ export class GithubRepository extends BaseRepository {
     status
   })
 
-  private mapComment = (comment: Unpacked<PullReviewsData>): CommentInfo => ({
+  private mapReview = (comment: Unpacked<PullReviewsData>): CommentInfo => ({
     id: comment.id,
     htmlURL: comment.html_url,
     submittedAt: comment.submitted_at ? moment(comment.submitted_at) : undefined,
     author: comment.user?.login || '',
     body: comment.body,
     state: comment.state
+  })
+
+  private mapComment = (comment: Unpacked<PullCommentsData>): CommentInfo => ({
+    id: comment.id,
+    htmlURL: comment.html_url,
+    submittedAt: comment.created_at ? moment(comment.created_at) : undefined,
+    author: comment.user?.login || '',
+    body: comment.body || '',
+    state: undefined
   })
 
   private fetchedEnough(pullRequests: PullsListData, fromDate: moment.Moment): boolean {

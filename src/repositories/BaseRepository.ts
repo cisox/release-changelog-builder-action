@@ -48,6 +48,8 @@ export abstract class BaseRepository {
 
   abstract getReviews(owner: string, repo: string, pr: PullRequestInfo): Promise<void>
 
+  abstract getComments(owner: string, repo: string, pr: PullRequestInfo): Promise<void>
+
   protected async getTagByCreateTime(repositoryPath: string, tagInfo: TagInfo): Promise<TagInfo> {
     core.info(`⚠️ No release information found for ${tagInfo.name}, trying to retrieve tag creation time as fallback.`)
     const gitHelper = await createCommandManager(repositoryPath)

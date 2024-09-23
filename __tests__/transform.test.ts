@@ -469,6 +469,7 @@ it('Commit SHA-1 in commitMode', async () => {
     fetchReviewers: false,
     fetchReleaseInformation: false,
     fetchReviews: false,
+    fetchComments: false,
     mode: 'COMMIT',
     configuration: customConfig,
     repositoryUtils: repositoryUtils
@@ -491,6 +492,7 @@ it('Release Diff', async () => {
     fetchReviewers: false,
     fetchReleaseInformation: true,
     fetchReviews: false,
+    fetchComments: false,
     mode: 'COMMIT',
     configuration: customConfig,
     repositoryUtils: repositoryUtils

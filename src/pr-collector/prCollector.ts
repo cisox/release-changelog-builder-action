@@ -17,6 +17,7 @@ export interface Options {
   fetchReviewers: boolean // defines if the action should fetch the reviewers for PRs - approved reviewers are not included in the default PR listing
   fetchReleaseInformation: boolean // defines if the action should fetch the release information for the from and to tag - e.g. the creation date for the associated release
   fetchReviews: boolean // defines if the action should fetch the reviews for the PR.
+  fetchComments: boolean // defines if the action should fetch the comments for the PR.
   mode: 'PR' | 'COMMIT' | 'HYBRID' // defines the mode used. note: the commit or hybrid modes are not fully supported
   configuration: PullConfiguration // the configuration as defined in `configuration.ts`
 }
@@ -44,6 +45,7 @@ export class PullRequestCollector {
     private fetchReviewers = false,
     private fetchReleaseInformation = false,
     private fetchReviews = false,
+    private fetchComments = false,
     private mode: 'PR' | 'COMMIT' | 'HYBRID' = 'PR',
     private configuration: PullConfiguration
   ) {}
@@ -102,6 +104,7 @@ export class PullRequestCollector {
       fetchReviewers: this.fetchReviewers,
       fetchReleaseInformation: this.fetchReleaseInformation,
       fetchReviews: this.fetchReviews,
+      fetchComments: this.fetchComments,
       mode: this.mode,
       configuration: this.configuration
     })
