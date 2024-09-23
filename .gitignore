@@ -98,4 +98,5 @@ Thumbs.db
 __tests__/runner/*
 lib/**/*
 
-.idea
+lib
+src/pr-collector/dist
